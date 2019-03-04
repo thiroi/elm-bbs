@@ -34,6 +34,8 @@ type alias Model =
     , url : Url.Url
     , inputTitle : String
     , inputName : String
+    , successMsg : String
+    , errMsg : String
     , threads : List Thread
     }
 
@@ -49,6 +51,7 @@ type alias Thread =
 type alias Comment =
     { user : String
     , message : String
+    , date : String
     }
 
 
@@ -68,23 +71,33 @@ threadDecoder =
 
 commentDecoder : Decoder Comment
 commentDecoder =
-    Decode.map2 Comment
+    Decode.map3 Comment
         (Decode.field "user" Decode.string)
         (Decode.field "message" Decode.string)
+        (Decode.field "date" Decode.string)
 
 
 init : Decode.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
     let
-        initialModel =
+        initialThread =
             case Decode.decodeValue flagsDecoder flags of
                 Err _ ->
-                    [ Thread 1 "なにはなそう" "ぼぶ" [ Comment "Sam" "すごいこめんと", Comment "えんどう" "最強のコメント" ], Thread 2 "あたらしいはなし" "まっと" [ Comment "すーちゃん" "すごいこめんと", Comment "名無し" "そこそこのコメント" ] ]
+                    [ Thread 1
+                        "とあるウワサ"
+                        "ぼぶ"
+                        [ Comment "KK" "最近、じーのさんがいなくなったことで、Rust会が下火らしいですよ。。。困りましたね。これはどうにかしないと。どうしますか、もっつさん" "2018/09/02 15:13"
+                        , Comment "えんどう" "Rust会にかわる、Haskell会でも開いてみては..." "2018/09/02 15:24"
+                        , Comment "MT" "Elmヤバイ。シヌ" "2018/09/02 15:24"
+                        , Comment "名無し" "とある噂によると、例のあの人が、Uに入るらしいです。大型強化ってやつですね！！！これからどういう開発体制になるのやら" "2018/09/02 15:24"
+                        ]
+                    , Thread 2 "あたらしいはなし" "まっと" [ Comment "すーちゃん" "すごいこめんと" "2018/09/02 15:24", Comment "名無し" "そこそこのコメント" "2018/09/02 15:32" ]
+                    ]
 
                 Ok model ->
                     model
     in
-    ( Model key url "" "" initialModel, Cmd.none )
+    ( Model key url "" "" "" "" initialThread, Cmd.none )
 
 
 
@@ -114,7 +127,12 @@ update msg model =
             ( model, Cmd.none )
 
         MakeThread ->
-            ( { model | inputTitle = "", inputName = "" }, portSetLocalStorage ( "threads", Thread (getNewId model) model.inputTitle model.inputName [] :: model.threads ) )
+            case validInput model of
+                Err errMsg ->
+                    ( { model | errMsg = errMsg, successMsg = "" }, Cmd.none )
+
+                Ok successMsg ->
+                    ( { model | errMsg = "", successMsg = successMsg, inputTitle = "", inputName = "" }, portSetLocalStorage ( "threads", Thread (getNewId model) model.inputTitle model.inputName [] :: model.threads ) )
 
         SyncLocalStorage newThreads ->
             ( { model | threads = newThreads }, Cmd.none )
@@ -131,6 +149,24 @@ update msg model =
             ( { model | url = url }
             , Cmd.none
             )
+
+
+validInput : Model -> Result String String
+validInput model =
+    if String.length model.inputTitle == 0 then
+        Err "タイトルは必ずいれてね"
+
+    else if String.length model.inputTitle > 256 then
+        Err "タイトルが256文字を超えているよ！"
+
+    else if String.length model.inputName == 0 then
+        Err "おなまえは必須だよ！"
+
+    else if String.length model.inputName > 32 then
+        Err "おなまえは32文字以内にしてみようか"
+
+    else
+        Ok ("新しいスレッド「" ++ model.inputTitle ++ "」 をつくったよ！")
 
 
 getNewId : Model -> Int
@@ -166,17 +202,21 @@ view model =
 allView : Model -> Html Msg
 allView model =
     div [ class "center" ]
-        [ div [ class "inputArea" ]
+        [ h1 [] [ text "ELM - BBS" ]
+        , div [ class "inputArea" ]
             [ div []
-                [ label [] [ text "てーま：" ]
+                [ label [] [ text "タイトル：" ]
                 , input [ value model.inputTitle, onInput UpdateInputTitle ] []
                 ]
             , div []
                 [ label [] [ text "おなまえ：" ]
                 , input [ value model.inputName, onInput UpdateInputName ] []
                 ]
-            , button [ onClick MakeThread ] [ text "さくせい" ]
-            , label [] [ text "" ]
+            ]
+        , button [ onClick MakeThread ] [ text "さくせい" ]
+        , div [ class "msgArea" ]
+            [ label [ class "errMsg" ] [ text model.errMsg ]
+            , label [ class "successMsg" ] [ text model.successMsg ]
             ]
         , div [ class "threads" ]
             [ tableView model.threads
@@ -213,7 +253,7 @@ viewLink label path =
 
 
 
------ コメント用
+----- スレッド詳細画面
 
 
 detailView : Model -> Html Msg
@@ -223,13 +263,13 @@ detailView model =
             findTargetThread model
     in
     div []
-        [ div
-            []
+        [ h1
+            [ class "center" ]
             [ text thread.title ]
         , commentsView thread.comments
         , div
-            []
-            [ viewLink "back" "/" ]
+            [ class "back" ]
+            [ viewLink "いちらんにもどる" "/" ]
         ]
 
 
@@ -242,9 +282,10 @@ commentsView commentList =
 
 toCommentCard : Comment -> Html msg
 toCommentCard comment =
-    div []
-        [ h1 [] [ text comment.user ]
-        , text comment.message
+    div [ class "comment_card" ]
+        [ div [ class "comment_date" ] [ text comment.date ]
+        , div [ class "comment_user" ] [ text comment.user ]
+        , div [ class "comment_message" ] [ text comment.message ]
         ]
 
 
@@ -271,7 +312,7 @@ findTargetThread model =
     in
     case targetModelMaybe of
         Nothing ->
-            Thread 99999999 "なにはなそう" (Url.toString model.url) [ Comment "Sam" "すごいこめんと", Comment "えんどう" "最強のコメント" ]
+            Thread 99999999 "なにはなそう" (Url.toString model.url) [ Comment "Sam" "すごいこめんと" "2019/01/01 11:09", Comment "えんどう" "最強のコメント" "2019/01/01 11:10" ]
 
         Just thread ->
             thread

@@ -20,6 +20,68 @@ body {
   margin-right: auto;
 }
 
+.comment_card {
+  border-bottom: solid;
+  width: 800px;
+  border-width: thin;
+  margin-top: 16px;
+}
+
+.comment_user {
+  text-align: left;
+}
+
+.threads {
+  margin-top: 32px;
+}
+
+.inputArea {
+  width: 300px;
+  height: 64px;
+  margin: auto;
+}
+
+.msgArea {
+  margin-top: 8px;
+  margin-bottom: 16px;
+}
+
+.errMsg {
+  color: red;
+}
+
+.successMsg {
+  color: lightseagreen;
+}
+
+th {
+  width: 200px;
+}
+
+.back {
+  text-align: center;
+  margin-top: 32px;
+}
+
+table {
+  border-spacing: 8px;
+}
+
+.comment_date {
+  margin-left: 16px;
+  margin-right: 16px;
+  float: left;
+  text-align: left;
+}
+
+.comment_message {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  margin-left: 24px;
+  margin-right: 24px;
+  text-align: left;
+}
+
 h1 {
   font-size: 30px;
 }
